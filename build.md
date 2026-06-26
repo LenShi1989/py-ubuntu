@@ -80,3 +80,77 @@ project/
 ├── requirements.txt
 └── main.py
 ```
+
+---
+
+# 多個 .py 檔打包
+
+## 原則
+
+PyInstaller 只需指定**入口檔案**（main.py），它會自動追蹤所有 `import` 並將相依的 .py 一起打包進去。
+
+## 專案結構範例
+
+```
+project/
+├── main.py          ← 入口，指定這個給 PyInstaller
+├── utils.py
+├── config.py
+└── service/
+    ├── __init__.py
+    └── ntp.py
+```
+
+`main.py` 範例：
+
+```python
+from utils import helper
+from service.ntp import get_time
+
+print(get_time())
+```
+
+## 打包指令（與單檔相同）
+
+```bash
+pyinstaller --onefile main.py
+```
+
+PyInstaller 會自動將 `utils.py`、`config.py`、`service/ntp.py` 全部打入執行檔。
+
+## 若有模組未被自動偵測
+
+動態 import（如 `importlib.import_module('xxx')`）PyInstaller 無法靜態分析，需手動加入：
+
+```bash
+pyinstaller --onefile --hidden-import utils --hidden-import service.ntp main.py
+```
+
+## 若需附帶非 .py 資源檔（圖片、設定檔等）
+
+```bash
+pyinstaller --onefile --add-data "config.json:." main.py
+```
+
+> 格式：`來源路徑:執行檔內的目標資料夾`，Linux 用 `:` 分隔。
+
+在程式碼中讀取資源檔需使用：
+
+```python
+import sys, os
+
+def resource_path(name):
+    base = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
+    return os.path.join(base, name)
+
+with open(resource_path('config.json')) as f:
+    ...
+```
+
+## 常見問題
+
+| 問題 | 解法 |
+|------|------|
+| `ModuleNotFoundError` 執行時找不到模組 | 加上 `--hidden-import 模組名` |
+| 資源檔找不到 | 改用 `resource_path()` 讀取 |
+| 想確認哪些檔案被打包 | 檢查 `main.spec` 內的 `Analysis` 區塊 |
